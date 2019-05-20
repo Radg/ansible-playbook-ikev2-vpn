@@ -1,0 +1,122 @@
+---
+- name: Install IKEv2 VPN server for macOS / iOS
+  hosts: vpn
+  become: yes
+
+  vars:
+    left_id: leftid=
+    network_interface: ens3
+
+  tasks:
+
+    - name: Install Strongswan package
+      apt: 
+        name: strongswan
+        state: present
+        update_cache: yes
+
+    - name: Install libcharon-extra-plugins package
+      apt: 
+        name: libcharon-extra-plugins
+        state: present
+
+    - name: Install Let's encrypt packages
+      apt: 
+        name: letsencrypt
+        state: present
+
+    - name: Request Let's encrypt certificates
+      shell: letsencrypt certonly --standalone -d {{ ansible_host }} --non-interactive --agree-tos -m {{ admin_email }} --dry-run
+
+    - name: Copy certificates to ipsec folder
+      shell: cp /etc/letsencrypt/live/{{ ansible_host }}/fullchain.pem /etc/ipsec.d/certs && cp /etc/letsencrypt/live/{{ ansible_host }}/privkey.pem /etc/ipsec.d/private
+
+    - name: Tune kernel parameters
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: 1
+        sysctl_set: yes
+        state: present
+      sysctl: 
+        name: net.ipv4.conf.all.accept_redirects
+        value: 0
+        sysctl_set: yes
+        state: present
+      sysctl:
+        name: net.ipv4.conf.all.send_redirects
+        value: 0
+        sysctl_set: yes
+        state: present
+      sysctl:
+        name: net.ipv4.conf.default.rp_filter
+        value: 0
+        sysctl_set: yes
+        state: present
+      sysctl:
+        name: net.ipv4.conf.default.accept_source_route
+        value: 0
+        sysctl_set: yes
+        state: present
+      sysctl:
+        name: net.ipv4.conf.default.send_redirects
+        value: 0
+        sysctl_set: yes
+        state: present
+      sysctl:
+        name: net.ipv4.icmp_ignore_bogus_error_responses
+        value: 1
+        sysctl_set: yes
+        state: present
+        reload: yes
+
+    - name: Accept redirects - no
+      shell: for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done
+
+    - name: Tune rc.local
+      shell: sed -i '/^exit.*/i for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done' /etc/rc.local
+
+    - name: Copy ipsec config & secret to remote
+      copy:
+        src: ~/ansible/ipsec/ipsec.conf
+        dest: /ets/ipsec.conf
+        mode: 0644
+        backup: yes
+      copy:
+        src: ~/ansible/ipsec/ipsec.secrets
+        dest: /etc/ipsec.secrets
+        mode: 0600
+        backup: yes
+
+    - set_fact: left_id_string="{{ left_id }}{{ ansible_host }}"
+
+    - debug:
+        msg: "{{ left_id_string }}" 
+
+    - name: Tune ipsec.conf
+      shell: sed -i 's,leftid=domain.*,'"{{ left_id_string }}"',g' /etc/ipsec.conf
+
+    - name: Add iptables masquerade rule
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        source: 10.11.12.0/24
+        out_interface: "{{ network_interface }}"
+        jump: MASQUERADE
+
+    - name: Enable strongswan
+      service:
+        name: strongswan
+        enabled: yes
+        state: started
+
+    - name: Restart ipsec
+      shell: ipsec restart
+
+
+
+
+
+
+
+
+

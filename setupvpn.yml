@@ -4,7 +4,7 @@
   become: yes
 
   vars:
-    left_id: leftid=
+    left_id: ' leftid='
     network_interface: ens3
 
   tasks:
@@ -73,7 +73,11 @@
       shell: for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done
 
     - name: Tune rc.local
-      shell: sed -i '/^exit.*/i for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done' /etc/rc.local
+      lineinfile:
+        path: /etc/rc.local
+        backup: yes
+        insertbefore: 'exit 0'
+        line: 'for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done'
 
     - name: Copy ipsec config & secret to remote
       copy:
@@ -92,8 +96,12 @@
     - debug:
         msg: "{{ left_id_string }}" 
 
-    - name: Tune ipsec.conf
-      shell: sed -i 's,leftid=domain.*,'"{{ left_id_string }}"',g' /etc/ipsec.conf
+    - name: Replace "domain" string in ipsec.conf with our FQDN
+      lineinfile:
+        path: /etc/ipsec.conf
+        backup: yes
+        regexp: ' leftid=domain'
+        line: "{{ left_id_string }}"
 
     - name: Add iptables masquerade rule
       iptables:

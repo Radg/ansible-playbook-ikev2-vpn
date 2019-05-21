@@ -66,4 +66,4 @@ molecule/*/.molecule
 tests/__pycache__
 
 # Ansible retry files
-.retry
+*.retry

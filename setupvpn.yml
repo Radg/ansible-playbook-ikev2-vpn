@@ -6,6 +6,7 @@
   vars:
     left_id: ' leftid='
     network_interface: ens3
+    admin_email: admin@example.com
 
   tasks:
 

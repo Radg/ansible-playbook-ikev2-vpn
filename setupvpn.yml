@@ -26,48 +26,26 @@
         state: present
 
     - name: Request Let's encrypt certificates
-      shell: letsencrypt certonly --standalone -d {{ ansible_host }} --non-interactive --agree-tos -m {{ admin_email }} --dry-run
+      shell: letsencrypt certonly --standalone -d {{ ansible_host }} --non-interactive --agree-tos -m {{ admin_email }}
 
     - name: Copy certificates to ipsec folder
       shell: cp /etc/letsencrypt/live/{{ ansible_host }}/fullchain.pem /etc/ipsec.d/certs && cp /etc/letsencrypt/live/{{ ansible_host }}/privkey.pem /etc/ipsec.d/private
 
     - name: Tune kernel parameters
       sysctl:
-        name: net.ipv4.ip_forward
-        value: 1
-        sysctl_set: yes
-        state: present
-      sysctl: 
-        name: net.ipv4.conf.all.accept_redirects
-        value: 0
-        sysctl_set: yes
-        state: present
-      sysctl:
-        name: net.ipv4.conf.all.send_redirects
-        value: 0
-        sysctl_set: yes
-        state: present
-      sysctl:
-        name: net.ipv4.conf.default.rp_filter
-        value: 0
-        sysctl_set: yes
-        state: present
-      sysctl:
-        name: net.ipv4.conf.default.accept_source_route
-        value: 0
-        sysctl_set: yes
-        state: present
-      sysctl:
-        name: net.ipv4.conf.default.send_redirects
-        value: 0
-        sysctl_set: yes
-        state: present
-      sysctl:
-        name: net.ipv4.icmp_ignore_bogus_error_responses
-        value: 1
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
         sysctl_set: yes
         state: present
         reload: yes
+      with_items:
+        - { name: 'net.ipv4.ip_forward', value: '1' }
+        - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.all.send_redirects', value: '0' }
+        - { name: 'net.ipv4.conf.default.rp_filter', value: '0' }
+        - { name: 'net.ipv4.conf.default.accept_source_route', value: '0' }
+        - { name: 'net.ipv4.conf.default.send_redirects', value: '0' }
+        - { name: 'net.ipv4.icmp_ignore_bogus_error_responses', value: '1' }
 
     - name: Accept redirects - no
       shell: for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done
@@ -81,12 +59,12 @@
 
     - name: Copy ipsec config & secret to remote
       copy:
-        src: ~/ansible/ipsec/ipsec.conf
+        src: ./ipsec/ipsec.conf
         dest: /ets/ipsec.conf
         mode: 0644
         backup: yes
       copy:
-        src: ~/ansible/ipsec/ipsec.secrets
+        src: ./ipsec/ipsec.secrets
         dest: /etc/ipsec.secrets
         mode: 0600
         backup: yes

@@ -10,21 +10,15 @@
 
   tasks:
 
-    - name: Install Strongswan package
+    - name: Install packages
       apt: 
-        name: strongswan
+        name: "{{ item.package_name }}"
         state: present
         update_cache: yes
-
-    - name: Install libcharon-extra-plugins package
-      apt: 
-        name: libcharon-extra-plugins
-        state: present
-
-    - name: Install Let's encrypt packages
-      apt: 
-        name: letsencrypt
-        state: present
+      loop:
+        - { package_name: strongswan }
+        - { package_name: libcharon-extra-plugins }
+        - { package_name: letsencrypt }
 
     - name: Check if Let's encrypt certificates already exists
       stat:

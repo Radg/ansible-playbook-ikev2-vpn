@@ -26,8 +26,15 @@
         name: letsencrypt
         state: present
 
+    - name: Check if Let's encrypt certificates already exists
+      stat:
+        path: /etc/letsencrypt/live/{{ ansible_host }}/fullchain.pem
+      register:
+        stat_result
+
     - name: Request Let's encrypt certificates
       shell: letsencrypt certonly --standalone -d {{ ansible_host }} --non-interactive --agree-tos -m {{ admin_email }}
+      when: stat_result.stat.exists == False
 
     - name: Copy certificates to ipsec folder
       shell: cp /etc/letsencrypt/live/{{ ansible_host }}/fullchain.pem /etc/ipsec.d/certs && cp /etc/letsencrypt/live/{{ ansible_host }}/privkey.pem /etc/ipsec.d/private
@@ -60,15 +67,13 @@
 
     - name: Copy ipsec config & secret to remote
       copy:
-        src: ./ipsec/ipsec.conf
-        dest: /ets/ipsec.conf
-        mode: 0644
+        src: "{{ item.source }}"
+        dest: "{{ item.destination }}"
+        mode: "{{ item.filemode }}"
         backup: yes
-      copy:
-        src: ./ipsec/ipsec.secrets
-        dest: /etc/ipsec.secrets
-        mode: 0600
-        backup: yes
+      with_items:
+        - { source: './ipsec/ipsec.conf', destination: '/etc/ipsec.conf', filemode: '0644'}
+        - { source: './ipsec/ipsec.secrets', destination: '/etc/ipsec.secrets', filemode: '0600'}
 
     - set_fact: left_id_string="{{ left_id }}{{ ansible_host }}"
 

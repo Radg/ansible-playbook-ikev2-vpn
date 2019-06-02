@@ -1,0 +1,8 @@
+---
+- name: Install IKEv2 VPN server for macOS / iOS
+  # Specify hosts here
+  hosts: moscow 
+  become: yes
+
+  roles: 
+    - ikev2-vpn-server

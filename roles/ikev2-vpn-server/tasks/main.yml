@@ -1,0 +1,84 @@
+---
+# tasks file for ikev2-vpn-server
+
+- name: Install packages
+  apt:
+    name: "{{ item.package_name }}"
+    state: present
+    update_cache: yes
+  loop:
+    - { package_name: strongswan }
+    - { package_name: libcharon-extra-plugins }
+    - { package_name: letsencrypt }
+
+- name: Check if Let's encrypt certificates already exists
+  stat:
+    path: /etc/letsencrypt/live/{{ ansible_host }}/fullchain.pem
+  register:
+    stat_result
+
+- name: Request Let's encrypt certificates
+  shell: letsencrypt certonly --standalone -d {{ ansible_host }} --non-interactive --agree-tos -m {{ admin_email }}
+  when: stat_result.stat.exists == False
+
+- name: Copy certificates to ipsec folder
+  shell: cp /etc/letsencrypt/live/{{ ansible_host }}/fullchain.pem /etc/ipsec.d/certs && cp /etc/letsencrypt/live/{{ ansible_host }}/privkey.pem /etc/ipsec.d/private
+
+- name: Tune kernel parameters
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: yes
+    state: present
+    reload: yes
+  loop:
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.ipv4.conf.all.accept_redirects', value: '0' }
+    - { name: 'net.ipv4.conf.all.send_redirects', value: '0' }
+    - { name: 'net.ipv4.conf.default.rp_filter', value: '0' }
+    - { name: 'net.ipv4.conf.default.accept_source_route', value: '0' }
+    - { name: 'net.ipv4.conf.default.send_redirects', value: '0' }
+    - { name: 'net.ipv4.icmp_ignore_bogus_error_responses', value: '1' }
+
+- name: Accept redirects - no
+  shell: for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done
+
+- name: Tune rc.local
+  lineinfile:
+    path: /etc/rc.local
+    backup: yes
+    insertbefore: 'exit 0'
+    line: 'for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done'
+
+- name: Generate ipsec.conf
+  template:
+    src='ipsec.j2'
+    dest=/etc/ipsec.conf
+    mode='0644'
+
+- name: Copy secret to remote
+  copy:
+    src: "{{ item.source }}"
+    dest: "{{ item.destination }}"
+    mode: "{{ item.filemode }}"
+    backup: yes
+  loop:
+    - { source: 'ipsec.secrets', destination: '/etc/ipsec.secrets', filemode: '0600'}
+
+- name: Add iptables masquerade rule
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    source: 10.11.12.0/24
+    out_interface: "{{ network_interface }}"
+    jump: MASQUERADE
+
+- name: Enable strongswan
+  service:
+    name: strongswan
+    enabled: yes
+    state: started
+
+- name: Restart ipsec
+  shell: ipsec restart
+

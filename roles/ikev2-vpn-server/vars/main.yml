@@ -1,0 +1,9 @@
+---
+# vars file for ikev2-vpn-server
+
+# This is you server's internet connected  network interface
+network_interface: ens3
+
+# Specify email to get notifications about certificate expiring
+admin_email: admin@example.com
+

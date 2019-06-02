@@ -1,10 +1,13 @@
 ---
 - name: Install IKEv2 VPN server for macOS / iOS
+  # Specify hosts here
   hosts: moscow 
   become: yes
 
   vars:
+    # This is you server's internet connected  network interface
     network_interface: ens3
+    # Specify email to get notifications about certificate expiring
     admin_email: admin@example.com 
 
   tasks:
@@ -60,7 +63,7 @@
 
     - name: Generate ipsec.conf
       template:
-        src='./ipsec/ipsec.j2'
+        src='./roles/ikev2-vpn-server/templates/ipsec.j2'
         dest=/etc/ipsec.conf
         mode='0644'
 
@@ -71,7 +74,7 @@
         mode: "{{ item.filemode }}"
         backup: yes
       with_items:
-        - { source: './ipsec/ipsec.secrets', destination: '/etc/ipsec.secrets', filemode: '0600'}
+        - { source: './roles/ikev2-vpn-server/files/ipsec.secrets', destination: '/etc/ipsec.secrets', filemode: '0600'}
 
     - name: Add iptables masquerade rule
       iptables:

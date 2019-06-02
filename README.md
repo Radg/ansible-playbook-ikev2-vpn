@@ -15,8 +15,10 @@ admin_email - email for certificate expiring notifications
 ## Example Playbook
 
   hosts: moscow
+  
   become: yes
 
   roles:
+  
     - ikev2-vpn-server
 

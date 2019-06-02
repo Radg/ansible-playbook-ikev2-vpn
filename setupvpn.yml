@@ -1,12 +1,11 @@
 ---
 - name: Install IKEv2 VPN server for macOS / iOS
-  hosts: vpn
+  hosts: moscow 
   become: yes
 
   vars:
-    left_id: ' leftid='
     network_interface: ens3
-    admin_email: admin@example.com
+    admin_email: admin@example.com 
 
   tasks:
 
@@ -59,27 +58,20 @@
         insertbefore: 'exit 0'
         line: 'for vpn in /proc/sys/net/ipv4/conf/*; do echo 0 > $vpn/accept_redirects; echo 0 > $vpn/send_redirects; done'
 
-    - name: Copy ipsec config & secret to remote
+    - name: Generate ipsec.conf
+      template:
+        src='./ipsec/ipsec.j2'
+        dest=/etc/ipsec.conf
+        mode='0644'
+
+    - name: Copy secret to remote
       copy:
         src: "{{ item.source }}"
         dest: "{{ item.destination }}"
         mode: "{{ item.filemode }}"
         backup: yes
       with_items:
-        - { source: './ipsec/ipsec.conf', destination: '/etc/ipsec.conf', filemode: '0644'}
         - { source: './ipsec/ipsec.secrets', destination: '/etc/ipsec.secrets', filemode: '0600'}
-
-    - set_fact: left_id_string="{{ left_id }}{{ ansible_host }}"
-
-    - debug:
-        msg: "{{ left_id_string }}" 
-
-    - name: Replace "domain" string in ipsec.conf with our FQDN
-      lineinfile:
-        path: /etc/ipsec.conf
-        backup: yes
-        regexp: ' leftid=domain'
-        line: "{{ left_id_string }}"
 
     - name: Add iptables masquerade rule
       iptables:
@@ -97,12 +89,4 @@
 
     - name: Restart ipsec
       shell: ipsec restart
-
-
-
-
-
-
-
-
 

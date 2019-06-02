@@ -30,5 +30,5 @@ conn IPSec-IKEv2-EAP
 conn IKEv2-MSCHAPv2-Apple
  also="IKEv2-EAP"
  rightauth=eap-mschapv2
- leftid=domain
+ leftid={{ ansible_host }}
  
